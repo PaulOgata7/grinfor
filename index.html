@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Assista ao vídeo</title>
+
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    /* Vídeo ocupa a tela inteira (100dvh = altura real no celular) */
+    #video {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      object-fit: contain;   /* vídeo 9:16 sem cortar nada */
+      background: #000;
+    }
+
+    /* Camada de início: um toque libera som + tela cheia */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 24px calc(48px + env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(0,0,0,.75) 0%, rgba(0,0,0,0) 55%);
+      cursor: pointer;
+      transition: opacity .25s ease;
+    }
+    #overlay.hidden { opacity: 0; pointer-events: none; }
+
+    #logo {
+      max-width: 160px;
+      max-height: 80px;
+      margin-bottom: 20px;
+      display: none; /* aparece só se existir logo.png (ver script) */
+    }
+
+    #playBtn {
+      width: 100%;
+      max-width: 320px;
+      padding: 18px 24px;
+      font-size: 19px;
+      font-weight: 600;
+      color: #fff;
+      background: #e50914;   /* troque pela cor da sua marca */
+      border: 0;
+      border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.45);
+    }
+    #playBtn:active { transform: scale(.98); }
+
+    #hint {
+      margin-top: 12px;
+      color: rgba(255,255,255,.8);
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <!--
+    IMPORTANTE:
+    - NÃO use o atributo "playsinline": no iPhone ele impediria a tela cheia nativa.
+    - "#t=0.1" faz o navegador mostrar o primeiro quadro como capa.
+    - Para trocar o vídeo, basta substituir o arquivo video.mp4 (mesmo nome).
+  -->
+  <video id="video"
+         src="video.mp4#t=0.1"
+         preload="metadata"
+         controls
+         controlsList="nodownload"
+         disablePictureInPicture></video>
+
+  <div id="overlay" role="button" aria-label="Assistir em tela cheia">
+    <img id="logo" src="logo.png" alt="Logo">
+    <button id="playBtn" type="button">▶ Assistir em tela cheia</button>
+    <div id="hint">Toque para iniciar com som</div>
+  </div>
+
+  <script>
+    const video   = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const logo    = document.getElementById('logo');
+    const btn     = document.getElementById('playBtn');
+    const hint    = document.getElementById('hint');
+
+    // Mostra o logo somente se o arquivo logo.png existir
+    logo.onload = () => { logo.style.display = 'block'; };
+
+    // Entra em tela cheia (Android/desktop e iPhone)
+    function enterFullscreen() {
+      try {
+        if (video.requestFullscreen)            return video.requestFullscreen();
+        if (video.webkitRequestFullscreen)      return video.webkitRequestFullscreen();
+        if (video.webkitEnterFullscreen)        return video.webkitEnterFullscreen(); // iPhone
+      } catch (e) { /* se falhar, o vídeo já está ocupando a tela toda */ }
+    }
+
+    function start() {
+      video.muted = false;
+      video.volume = 1;
+      const p = video.play();   // precisa estar dentro do toque do usuário
+      enterFullscreen();
+      overlay.classList.add('hidden');
+      if (p && p.catch) p.catch(() => overlay.classList.remove('hidden'));
+    }
+
+    overlay.addEventListener('click', start);
+
+    // Ao terminar, oferece assistir novamente
+    video.addEventListener('ended', () => {
+      btn.textContent = '↻ Assistir novamente';
+      hint.textContent = 'Toque para rever';
+      overlay.classList.remove('hidden');
+    });
+
+    // Se o usuário sair da tela cheia e pausar, mantém os controles acessíveis
+    video.addEventListener('pause', () => {
+      if (!video.ended && video.currentTime > 0) {
+        overlay.classList.remove('hidden');
+        btn.textContent = '▶ Continuar';
+        hint.textContent = 'Toque para continuar';
+      }
+    });
+
+    // Se tentar iniciar pelos controles nativos, esconde a camada
+    video.addEventListener('play', () => overlay.classList.add('hidden'));
+
+    // Erro ao carregar o vídeo (nome errado, arquivo ausente etc.)
+    video.addEventListener('error', () => {
+      btn.style.display = 'none';
+      hint.textContent = 'Não foi possível carregar o vídeo. Tente novamente em instantes.';
+    });
+  </script>
+</body>
+</html>
